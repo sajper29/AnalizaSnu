@@ -1,0 +1,113 @@
+---
+title: "Analiza snu i stylu życia – projekt regresyjny"
+author: "Twoje imię"
+format: html
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Wprowadzenie
+
+Celem tego projektu jest zbudowanie modeli regresyjnych przewidujących **czas snu (`Sleep Duration`)** na podstawie danych o zdrowiu i stylu życia.  
+Dane pochodzą z pliku `Sleep_health_and_lifestyle_dataset.csv`.
+
+---
+
+# Wczytanie danych i eksploracja
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(naniar)
+library(GGally)
+
+# Wczytanie
+df <- read_csv("Sleep_health_and_lifestyle_dataset.csv")
+
+# Podgląd danych
+glimpse(df)
+skim(df)
+
+# Rozkład zmiennej docelowej
+df %>%
+  ggplot(aes(x = `Sleep Duration`)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white")
+
+# Korelacje między zmiennymi numerycznymi
+df %>%
+  select(where(is.numeric)) %>%
+  ggpairs()
+
+# Braki danych
+vis_miss(df)
+
+df <- df %>%
+  mutate(across(where(is.character), as.factor))
+
+set.seed(123)
+data_split <- initial_split(df, prop = 0.8, strata = `Sleep Duration`)
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+
+sleep_rec <- recipe(Sleep.Duration ~ ., data = train_data) %>%
+  step_impute_median(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors())
+
+sleep_rec
+
+lm_spec <- linear_reg() %>%
+  set_engine("lm")
+
+ridge_spec <- linear_reg(penalty = 0.1, mixture = 0) %>%
+  set_engine("glmnet")
+
+lasso_spec <- linear_reg(penalty = 0.1, mixture = 1) %>%
+  set_engine("glmnet")
+
+rf_spec <- rand_forest(trees = 500) %>%
+  set_engine("randomForest") %>%
+  set_mode("regression")
+
+xgb_spec <- boost_tree(trees = 500, learn_rate = 0.05) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+set.seed(123)
+folds <- vfold_cv(train_data, v = 5)
+
+lm_wf <- workflow() %>% add_model(lm_spec) %>% add_recipe(sleep_rec)
+rf_wf <- workflow() %>% add_model(rf_spec) %>% add_recipe(sleep_rec)
+xgb_wf <- workflow() %>% add_model(xgb_spec) %>% add_recipe(sleep_rec)
+
+lm_res <- fit_resamples(lm_wf, folds, metrics = metric_set(rmse, mae, rsq))
+rf_res <- fit_resamples(rf_wf, folds, metrics = metric_set(rmse, mae, rsq))
+xgb_res <- fit_resamples(xgb_wf, folds, metrics = metric_set(rmse, mae, rsq))
+
+collect_metrics(lm_res)
+collect_metrics(rf_res)
+collect_metrics(xgb_res)
+
+# Zbiorcze porównanie wyników
+res <- bind_rows(
+  collect_metrics(lm_res) %>% mutate(model = "Linear"),
+  collect_metrics(rf_res) %>% mutate(model = "RandomForest"),
+  collect_metrics(xgb_res) %>% mutate(model = "XGBoost")
+)
+
+res %>%
+  ggplot(aes(x = model, y = mean, fill = .metric)) +
+  geom_col(position = "dodge") +
+  labs(title = "Porównanie modeli", y = "Średnia metryka (CV)")
+
+# Trenowanie najlepszego modelu (przykładowo: RandomForest) na pełnym zbiorze treningowym
+best_wf <- rf_wf %>% fit(data = train_data)
+
+# Ewaluacja na zbiorze testowym
+predict(best_wf, test_data) %>%
+  bind_cols(test_data %>% select(Sleep.Duration)) %>%
+  metrics(truth = Sleep.Duration, estimate = .pred)
+```
