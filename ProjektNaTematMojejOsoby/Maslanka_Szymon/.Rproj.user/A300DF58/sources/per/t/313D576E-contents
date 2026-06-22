@@ -1,0 +1,469 @@
+---
+title: "Sprawozdanie Quarto+R"
+subtitle: "Kurs"
+author: "Szymon Maślanka"
+date: today
+abstract-title: Abstrakt
+abstract: Poniżej znajduje się sprawozdanie na podstawie wytycznych z platformy UPEL zawierające opis czegoś o mnie przy wykorzystaniu poznanych informacji i prezentacja poznanej wiedzy, a na końcu przeprowadzona regresja liniowa na zestawie danych.
+format: 
+  html:
+    toc: true
+    toc-title: "Spis treści"
+    toc-location: right
+    toc-depth: 4
+    number-sections: true
+    number-depth: 4
+    embed-resources: true
+    self-contained-math: true
+    html-math-method: katex
+    theme: Yeti
+    anchor-sections: true
+    code-fold: show
+    fig-align: center
+    lang: pl
+execute:
+  echo: true
+  warning: false
+editor_options: 
+  
+  chunk_output_type: console
+---
+
+```{=html}
+<style>
+  body {
+    text-align: justify;
+  }
+</style>
+```
+
+## Pakiety {.unnumbered .unlisted}
+
+```{r}
+#| warning: false
+#| code-fold: false
+
+library(tidyverse)
+library(leaflet)
+library(htmlwidgets)
+library(HistData)
+library(DT)
+library(purrr)
+library(readr)
+library(stringr)
+library(broom)
+library(skimr)
+library(lmtest)
+library(ggfortify)
+library(plotly)
+```
+
+## Nagłówek YAML
+
+Powyższy informacje oraz formatowanie strony zostało wykonane przy użcyiu nagłówka YAML:
+
+``` yaml
+---
+title: "Sprawozdanie Quarto+R" # Tytuł dokumentu
+subtitle: "Kurs" # Podtytuł dokumentu
+author: "Szymon Maślanka" # Autor dokumentu
+date: today # Data publikacji dokumentu
+abstract-title: Abstrakt # Tytuł streszczenia
+abstract: Poniżej znajduje się sprawozdanie na podstawie wytycznych z platformy UPEL zawierające opis czegoś o mnie przy wykorzystaniu poznanych informacji, a na końcu przeprowadzona regresja liniowa na zestawie danych. # Treść streszczenia
+format: # Dokument zostanie wygenerowany do formatu HTML
+  html:
+    toc: true  # Aktywny spis treści
+    toc-title: "Spis treści"  # Tytuł spisu
+    toc-location: right # Lokalizacja spisu po prawej
+    toc-depth: 4 # Nagłówki w spisie znajdują się do nagłówka 4 stopnia
+    number-sections: true  # Nagłówki są numerowane
+    number-depth: 4 # Nagłówki numerowane od 1-4 stopnia
+    embed-resources: true # Plik HTML będzie samowystarczalny
+    self-contained-math: true  # Do samowystarczalności zaliczają się też biblioteki matematyczne
+    html-math-method: katex # Katex jako metoda do renderowania matematyki
+    theme: Yeti # Styl dokumentu Yeti
+    anchor-sections: true # Po najechaniu na nagłówek wyświetla link kotwiczący
+    code-fold: show # Pozwala chować i rozwijać kod na stronie
+    fig-align: center # Domyślne obrazy wycentrowane
+    lang: pl # Domyślny język dokumentu Polski
+execute: # Domyślne opcje kodu w dokumencie
+  echo: true # Wyświetla kod
+  warning: false # Nie wyświetla ostrzeżeń
+editor_options:  # Opcje edytora
+  chunk_output_type: console # Wyniki kodu wyświetlane surowo(tekst)
+---
+```
+
+## Zainteresowania - cogito ergo sum
+
+Hej! Mam na imię **Szymon Maślanka** i w sierpniu zacznę *22 lata*. Jestem studentem na **AGH** w Krakowie, na kierunku ***WIMiIP ETI***. Moje zainteresowania to:
+
+-   Zwierzęta głównie:
+    -   Gryzonie
+    -   Akwarystyka
+-   Gra na gitarze
+-   Jazda na rowerze
+
+:::::: panel-tabset
+### Akwarystyka
+
+Akwarystyka to moja pasja od wielu lat. Dbam o swoje dwa akwaria słodkowodne, starając się zapewnić jak najlepsze warunki dla ryb i roślin. To dla mnie forma relaksu i odpoczynku.
+
+::: {#fig-akwaria layout-ncol="2"}
+![Akwarium1](akwa1.jpeg){#fig-akwa1 .lightbox width="100%" fig-alt="Akwarium1"}
+
+![Akwarium2](akwa2.jpg){#fig-akwa2 .lightbox width="90%" fig-alt="Akwarium2"}
+
+Moje rybki
+:::
+
+Polecam tę stronę dotyczącą wiedzy o gatunkach ryb:
+
+::: {style="text-align: center"}
+[rybyakwariowe.eu](https://rybyakwariowe.eu)
+:::
+
+### Myszoskoczki
+
+Myszoskoczki to niesamowite stworzenia, które są moimi towarzyszami w domu. Lubię obserwować ich codzienne zachowanie.
+
+![Myszoskoczki](https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Mongolische_Wuestenrennmaus.jpg/500px-Mongolische_Wuestenrennmaus.jpg){fig-alt="Myszoskoczki"}
+
+Jeśli ktoś by zechciał również zostać właścicielem tutaj można adoptować:
+
+::: {style="text-align: center"}
+[![Adoptuj](adopt.png)](https://labrescue.pl/porady/myszoskoczki/)
+:::
+
+### Gitara
+
+Gitara to instrument, na którym grałem od wielu lat. Lubię grać różne piosenki, od rocka po ballady. Gram na gitarze akustycznej.
+
+![Moja gitara](Marti.jpg){fig-align="center" width="20%" fig-alt="Gitara"}
+
+### Jazda na rowerze
+
+Jazda na rowerze to moja ulubiona forma aktywności fizycznej. Przejażdżki po malowniczych trasach to doskonały sposób na odpoczynek.
+
+##### Mapa ścieżek rowerowych świata z zaznaczoną moją ulubioną ścieżką (z Muszyny do Krynicy) {.unnumbered .unlisted}
+
+```{r}
+#| column: screen
+#| echo: false
+
+api_key <- "154813b0f2664b2ba4cda834a70df8cf"
+punkty <- data.frame(
+  lng = c(20.891092, 20.960063),
+  lat = c(49.353301, 49.421136),
+  opis = c("Początek ulubionej trasy 🚴(Kliknij by przybliżyć)", "Koniec ulubionej trasy 🏁(Kliknij by przybliżyć)"),
+  popup = c("",""),
+  id = c("marker1","marker2")
+)
+
+m <- leaflet() %>%
+  addTiles(
+    urlTemplate = paste0("https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=", api_key),
+    attribution = 'Map data © OpenCycleMap, OpenStreetMap contributors'
+  ) %>%
+  setView(lng = 20.9500, lat = 49.380, zoom = 12) %>% 
+  addLegend(
+  position = "bottomright",
+  colors = c("red", "purple", "blue"),
+  labels = c("Narodowe ścieżki rowerowe", "Regionalne ścieżki rowerowe", "Lokalne ścieżki rowerowe"),
+  title = "Legenda"
+) %>%
+  addMarkers(
+    data = punkty,
+    lng = ~lng,
+    lat = ~lat,
+    label = ~opis,
+    layerId = ~id,
+    popup = ~popup
+  )
+m <- m %>%
+ onRender("function(el, x) {
+    var map = this;
+    map.on('popupopen', function(e) {
+      map.setView([49.380, 20.9500], 12);
+      e.target.closePopup();
+    });
+  }")
+
+m
+```
+::::::
+
+::: callout-note
+Dodatkowo dodam, że jestem jedynakiem.
+:::
+
+## Zawartość - pokaż co potrafisz
+
+### Pozyskanie danych, przetwarzanie potokowe (dplyr) i interaktywna tabela
+
+Wykorzystałem zestaw danych "GaltonFamilies" z pakietu "HistData". Przy wykorzystaniu poniższych komend wyciągnąłem dane o wzroście ojca,matki i średniego wzrostu ich synów w centymetrach. Zestaw ten opisuje zależność między wzrostem rodziców a ich dzieci. Na końcu stworzyłem interaktywną tabele za pomocą pakietu [DT](https://rstudio.github.io/DT/){target="_blank"}
+
+```{r}
+a <- GaltonFamilies |>
+  as_tibble() |> 
+  filter(gender=="male") |> 
+  select(!children:childNum) |> 
+  group_by(family) |> 
+  summarize(
+    Wzrost_ojca = first(father),
+    Wzrost_matki = first(mother),
+    Średni_wzrost_synów = mean(childHeight, na.rm = TRUE)
+  ) |> 
+  select(!family) |> 
+  mutate(across(
+    .cols = where(is.numeric),
+    .fns = ~round(as.numeric((.x*2.54),digits=2),2)
+  ))
+  
+
+a |> DT::datatable(options = list(scrollX = TRUE))
+```
+
+### Opis danych
+
+| Nazwa zmiennej | Opis |
+|------------------------------------|------------------------------------|
+| Wzrost_ojca | Wzrost ojców w rodzinach Galtonów w centymetrach. |
+| Wzrost_matki | Wzrost matek w rodzinach Galtonów w centymetrach. |
+| Średni_wzrost_synów | Średni wzrost synów w kolejnych rodzinach Galtonów w centymetrach. |
+
+: Opis przerobionego zestawu danych "GaltonFamilies"
+
+### Funkcja
+
+```{r}
+#| echo: false
+
+funkcja <- function(dane,prog_wzrostu, kategorie)
+{
+  dane <- dane |> 
+    mutate(
+      kategoria_wzrostu = case_when(
+        round(Średni_wzrost_synów,0) < prog_wzrostu ~ kategorie[1],
+        round(Średni_wzrost_synów,0) == prog_wzrostu ~ kategorie[2],  
+        round(Średni_wzrost_synów,0) > prog_wzrostu ~ kategorie[3]  
+      )
+    )
+  ggplot(dane, aes(x = kategoria_wzrostu)) +
+    geom_bar(fill = "skyblue") +
+    labs(
+      title = "Liczba synów w poszczególnych kategoriach wzrostu\n branych ze średniego wzrostu synów danej rodziny",
+      x = "Kategoria wzrostu",
+      y = "Liczba osób"
+    ) +
+    theme_minimal()
+}
+
+funkcja(a,170,c("Niski", "Średni", "Wysoki"))
+
+```
+
+::: column-margin
+Schemat wzoru użytego w funkcji: $$
+\scriptsize
+kategoria\_wzrostu = 
+\begin{cases}
+\text{Niski}, & \text{gdy } \text{round}(wzrost) < 170 \\
+\text{Średni}, & \text{gdy } \text{round}(wzrost) = 170 \\
+\text{Wysoki}, & \text{gdy } \text{round}(wzrost) > 170
+\end{cases}
+$$ wzrost - Średni_wzrost_synów
+:::
+
+### Pętla łącząca 3 pliki `csv` w obiekt typu `tibble`
+
+```{r}
+data1 <- tibble(ID = 1:3, Name = c("A", "B", "C"))
+data2 <- tibble(ID = 4:6, Name = c("D", "E", "F"))
+data3 <- tibble(ID = 7:9, Name = c("G", "H", "I"))
+
+write.csv(data1, "file1.csv", row.names = FALSE)
+write.csv(data2, "file2.csv", row.names = FALSE)
+write.csv(data3, "file3.csv", row.names = FALSE)
+file_name <- vector("character", 3)
+for (i in 1:3) {
+  file_name[i] <- paste0("file", i, ".csv")
+}
+
+combined <- file_name |> 
+  map_dfr(read_csv)
+
+combined
+```
+
+### ggplot2
+
+------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+
+styl <- theme(
+  plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+  axis.title = element_text(size = 12),
+  axis.text = element_text(size = 10),
+  panel.background = element_rect(fill = "lightgray"),
+  panel.grid.major = element_line(color = "white", size = 0.5),
+  panel.grid.minor = element_line(color = "gray", size = 0.25)
+)
+  a |> 
+  ggplot(aes(x = Wzrost_ojca, y = Średni_wzrost_synów)) +
+  geom_line(color = "red", size = 1) + 
+  labs(
+    title = "Zmiana średniego wzrostu syna zależnie od wzrostu ojca",
+    x = "Wzrost ojca w cm",
+    y = "Wzrost syna w cm"
+  ) + 
+  geom_smooth(color = "black", size = 1.2, linetype = "solid") +  
+  theme_minimal() +  
+  styl
+  
+```
+
+Widać że wraz ze wzrostem ojca wzrasta proporcjonalnie wzrost syna.
+
+------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+
+styl <- theme(
+  plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+  axis.title = element_text(size = 12),
+  axis.text = element_text(size = 10),
+  panel.background = element_rect(fill = "lightgray"),
+  panel.grid.major = element_line(color = "white", size = 0.5),
+  panel.grid.minor = element_line(color = "gray", size = 0.25)
+)
+  a <- a |> 
+  mutate(id = row_number()) 
+  ggplot(a, aes(x = id, y = Średni_wzrost_synów)) +
+  geom_point() +
+  labs(
+    title = "Rozkład tabeli",
+    y = "Średni wzrost synów (cm)",
+    x = "Numer mierzonego wzrostu"
+  ) +
+    geom_smooth(color = "black", size = 1.2, linetype = "solid") +  
+  theme_minimal()+
+  styl
+  
+```
+
+Można zauważyć, że wyniki tabeli zostały posortowane w kolejności malejącej, wraz ze zwiększeniem numeru pomiaru spada średni wzrost synów.
+
+### Regresja liniowa na przerobionym zestawie danych "GaltonFamilies"
+
+------------------------------------------------------------------------
+
+#### Szczegółowe informacje dotyczące modelu regresji wielorakiej
+
+```{r}
+#| echo: false
+
+b <- GaltonFamilies |>
+  as_tibble() |> 
+  filter(gender=="male") |> 
+  select(!children:childNum) |> 
+  group_by(family) |> 
+  summarize(
+    Wzrost_ojca = first(father),
+    Wzrost_matki = first(mother),
+    Średni_wzrost_synów = mean(childHeight, na.rm = TRUE)
+  ) |> 
+  select(!family) |> 
+  mutate(across(
+    .cols = where(is.numeric),
+    .fns = ~round((.x*2.54),digits=2)
+  ))
+model <- lm(Średni_wzrost_synów ~ Wzrost_ojca + Wzrost_matki, data = b)
+model |> summary()
+```
+
+- Residuals → różnica między wartością rzeczywistą (y) a wartością przewidywaną (ŷ) przez model. Jako że mediana wynosi ok. 0.14 cm — bardzo blisko zera, co jest dobrym znakiem regresji.
+
+- Współczynniki regresji (Coefficients) → Wzrost_ojca (0.42): Każdy dodatkowy centymetr wzrostu ojca zwiększa średni wzrost syna o około 0.42 cm, zakładając stały wzrost matki. Wzrost_matki (0.29): Każdy dodatkowy centymetr wzrostu matki zwiększa średni wzrost syna o około 0.29 cm, zakładając stały wzrost ojca. p-wartości wszystkich współczynników są bardzo małe (\<\< 0.001), co oznacza, że oba predyktory są istotne statystycznie.
+
+- Residual standard error: 4.486 → Średni błąd przewidywań wynosi około 4.5 cm wzrostu.
+
+- R^2^: 0.3653 → Model wyjaśnia około 36.5% zmienności średniego wzrostu synów na podstawie wzrostu ojca i matki.
+
+- Adjusted R^2^: 0.3581 → Skorygowana wersja R² (uwzględnia liczbę zmiennych) wynosi 35.8%.
+
+#### Tabele zawierające obserwacje wzbogacone o nowe kolumny oraz podsumowanie jakości modelu(parametry)
+
+```{r}
+#| echo: false
+
+model |> augment()|> DT::datatable(options = list(scrollX = TRUE))
+model |> glance() |> DT::datatable(options = list(scrollX = TRUE))
+```
+
+#### Automatyczne wykresy diagnostyczne
+
+```{r}
+#| echo: false
+
+autoplot(model)
+```
+
+- Residuals vs Fitted nie ma wyraźnego wzoru
+
+- QQ-plot wygląda dobrze (reszty są prawie na linii)
+
+- Scale-Location jest równomierny
+
+- Residuals vs Leverage nie ma dramatycznych outlierów
+
+#### Dodatkowy interaktywny wykres zależności średniego wzrostu syna od wzrostów matki i ojca przy wykorzystaniu plot_ly
+
+```{r}
+#| echo: false
+
+plot_ly(a, x = ~Wzrost_ojca, y = ~Wzrost_matki, z = ~Średni_wzrost_synów, type = "scatter3d", mode = "markers")
+```
+
+#### Testy modelu regresji
+
+##### Test Shapiro-Wilka
+
+```{r}
+#| echo: false
+
+model$residuals |> shapiro.test()
+```
+
+Wartość statystyki testu (W) wynosi 0.99549, co sugeruje, że reszty są bardzo bliskie rozkładowi normalnemu.
+
+p-wartość = 0.87 jest bardzo duża (znacznie większa niż 0.05), co oznacza, że nie możemy odrzucić hipotezy zerowej mówiącej, że rozkład zmiennej jest normalny.
+
+##### Test Durbin-Watson
+
+```{r}
+#| echo: false
+
+dwtest(model)
+```
+
+p-wartość = 0.07995 jest \> 0.05, więc nie możemy odrzucić hipotezy zerowej, która mówi, że autokorelacja jest zerowa. DW mieści się w przedziale od 1,5 do 2,5, oznacza to, że nie ma autokorelacji.
+
+##### Test Breusch-Pagan
+
+```{r}
+#| echo: false
+
+bptest(model)
+```
+
+p-wartość = 0.03515 jest \< 0.05, co sugeruje, że istnieje dowód na heteroskedastyczność. Oznacza to, że wariancja reszt nie jest stała i może zmieniać się w zależności od wartości predyktorów.
+
+#### Podsumowanie regresji
+
+Model jest statystycznie istotny, ale jego dopasowanie (R^2^ = 36.5%) nie jest idealne jednak tak, małe R^2^ w przypadku tego modelu regresji może być w dużej mierze spowodowane innymi biologicznymi czynnikami, które należałoby dodać. Mimo że spełnia główne założenia regresji, heteroskedastyczność sugeruje, że model może wymagać dalszej poprawy, np. przez transformację zmiennych lub użycie bardziej zaawansowanego podejścia.
+
+Ogólnie rzecz biorąc, model jest dobry, ale może być ulepszony, aby lepiej odwzorować zależności w danych.
